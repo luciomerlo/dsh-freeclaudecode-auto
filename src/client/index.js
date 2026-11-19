@@ -1,0 +1,129 @@
+/**
+ * Composer badge for FreeClaudeCode.
+ *
+ * The build script wraps `createPlugin` in the Client module loader. It polls
+ * the read-only status route the Host registers, so the badge shows the live
+ * pool, the last served model, and the session's silent failover count without
+ * a second connection or any Host-side UI state.
+ *
+ * The UI text is English, like the rest of the plugin. Colors come from the
+ * host theme tokens and degrade to neutral fallbacks.
+ *
+ * @module dsh-freeclaudecode-auto/client
+ */
+
+/** Dot color per health value. */
+const DOT_COLOR = {
+  healthy: 'var(--dsw-alias-success, #2f9e6e)',
+  degraded: 'var(--dsw-alias-warning, #c98b2f)',
+  offline: 'var(--dsw-alias-danger, #c94a4a)',
+}
+
+/** Status route the Host owns. */
+const STATUS_URL = '/plugin/freeclaudecode/status'
+
+/**
+ * Shorten a catalog id for the compact badge.
+ * @param {string} id - catalog id.
+ * @returns {string} the model part only.
+ */
+function shortModel(id) {
+  if (typeof id !== 'string' || id === '') return ''
+  const slash = id.lastIndexOf('/')
+  return slash === -1 ? id : id.slice(slash + 1)
+}
+
+/**
+ * Create the plugin object the Client loader installs.
+ *
+ * @param {object} React - the browser React instance from the module table.
+ * @returns {{inject: string[], apply: (ctx: object) => void}} the plugin.
+ */
+export function createPlugin(React) {
+  const h = React.createElement
+
+  /** The composer badge. */
+  function FreeClaudeCodeBadge() {
+    const [state, setState] = React.useState(null)
+
+    React.useEffect(() => {
+      let alive = true
+      const load = async () => {
+        try {
+          const response = await fetch(STATUS_URL, { headers: { accept: 'application/json' } })
+          if (!response.ok) return
+          const value = await response.json()
+          if (alive) setState(value)
+        } catch {
+          // The route does not exist in every host; the badge stays hidden.
+        }
+      }
+      void load()
+      const timer = setInterval(() => { void load() }, 15000)
+      return () => {
+        alive = false
+        clearInterval(timer)
+      }
+    }, [])
+
+    if (state === null) return null
+
+    const health = state.health ?? 'offline'
+    const pool = state.pool ?? {}
+    const last = state.session?.lastTurn ?? null
+    const failovers = state.session?.failovers ?? 0
+    const served = last?.servedModel === null || last?.servedModel === undefined
+      ? 'no turn yet'
+      : shortModel(last.servedModel)
+
+    return h(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '2px 8px',
+          borderRadius: 999,
+          fontSize: 11,
+          lineHeight: '18px',
+          color: 'var(--dsw-alias-text-secondary, #888)',
+          background: 'var(--dsw-alias-bg-subtle, rgba(127,127,127,0.08))',
+          userSelect: 'none',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+        },
+        title: `fcc ${state.fcc?.available ? 'up' : 'down'} · ${String(pool.ready ?? 0)}/${String(pool.size ?? 0)} models ready · ${String(failovers)} silent failovers this session`,
+      },
+      h('span', {
+        style: {
+          width: 7,
+          height: 7,
+          borderRadius: '50%',
+          background: DOT_COLOR[health] ?? DOT_COLOR.offline,
+          flex: '0 0 auto',
+        },
+      }),
+      h('span', { style: { fontWeight: 600, color: 'var(--dsw-alias-text-primary, #ddd)' } }, 'FreeClaudeCode'),
+      h('span', null, health),
+      h('span', null, `· ${String(pool.ready ?? 0)}/${String(pool.size ?? 0)} ready`),
+      failovers > 0 ? h('span', null, `· ${String(failovers)} failovers`) : null,
+      h('span', { style: { opacity: 0.8 } }, `· ${served}`),
+    )
+  }
+
+  return {
+    inject: ['slots'],
+    apply(ctx) {
+      ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
+        {
+          name: 'conversation.composer.dock',
+          id: 'freeclaudecode-status',
+          order: 40,
+        },
+        FreeClaudeCodeBadge,
+      ))
+    },
+  }
+}

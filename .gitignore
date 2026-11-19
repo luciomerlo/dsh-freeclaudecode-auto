@@ -1,0 +1,22 @@
+# Dependencies (none are required at runtime)
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Local secrets and Free Claude Code configuration
+.env
+.env.*
+!.env.example
+
+# Build and test output
+coverage/
+dist/
+*.log
+*.tsbuildinfo
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,54 @@
+{
+  "name": "dsh-freeclaudecode-auto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Free Claude Code (fcc) provider for DeepSeek Harness with a zero-drop Auto (FreeClaudeCode) failover router",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "free-claude-code",
+    "llm-router",
+    "failover"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "src",
+    "scripts",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test \"test/*.test.js\"",
+    "check": "node --check index.js && node --check client.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

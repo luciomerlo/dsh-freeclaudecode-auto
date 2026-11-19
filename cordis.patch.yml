@@ -1,0 +1,65 @@
+# Loader patch contributed by this bundle.
+#
+# The row below mounts the provider. Every value is an ordinary plugin Config:
+# a row with the same id in the profile's own cordis.patch.yml replaces this
+# complete config, so copy only the keys you want to change.
+- insert:
+    - id: llm-freeclaudecode
+      name: dsh-freeclaudecode-auto
+      config:
+        providerId: freeclaudecode
+        providerName: FreeClaudeCode
+        autoModelId: auto
+        autoModelName: Auto (FreeClaudeCode)
+        bestModelName: FreeClaudeCode - Best Coding
+        fastModelName: FreeClaudeCode - Fast / Subagent
+
+        # Free Claude Code's local Anthropic/OpenAI proxy. When the plugin is
+        # unset, `directory` defaults to ~/.fcc and `baseUrl` to
+        # http://127.0.0.1:8082. An empty string means "use the default".
+        fcc:
+          enabled: true
+          directory: ""
+          baseUrl: ""
+          autoStart: true
+          startupTimeoutMs: 20000
+          probeTimeoutMs: 1500
+
+        # Zero-drop watchdogs. A model that does not produce its first byte
+        # within ttftTimeoutMs, or stalls for longer than stallTimeoutMs in the
+        # middle of a response, is abandoned and the turn continues elsewhere.
+        ttftTimeoutMs: 8000
+        stallTimeoutMs: 12000
+        maxFailovers: 8
+        requestTimeoutMs: 600000
+
+        # A cut-off response continues on the next model instead of failing:
+        # the replacement receives the partial text as an assistant prefill
+        # (Anthropic wire) or an explicit continuation instruction (OpenAI wire).
+        continuation: true
+
+        # Provider-neutral context claim for the Auto/Best/Fast profiles.
+        # Individual candidates keep their own advertised window; the router
+        # skips a candidate whose window is smaller than the request.
+        autoContextWindow: 131072
+        autoMaxTokens: 32768
+
+        # Free providers reached directly when fcc's daemon is absent, using
+        # the same keys fcc stores in ~/.fcc/.env. Set enabled: false to only
+        # route through the fcc proxy.
+        directProviders:
+          enabled: true
+
+        # Extra OpenAI-compatible endpoints. Each entry becomes a provider
+        # whose key is read from apiKeyEnv (never from this file).
+        extraProviders: []
+
+        # Explicit candidate priority, highest first. Values are catalog ids
+        # such as "fcc:nvidia_nim/meta/llama-3.3-70b-instruct" or
+        # "groq/llama-3.3-70b-versatile".
+        preferredOrder: []
+        disabledModels: []
+
+        refreshCatalogOnFailover: true
+        logTurns: true
+        statusRoute: true
