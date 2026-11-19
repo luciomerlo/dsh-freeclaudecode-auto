@@ -38,6 +38,18 @@
       },
       "versions": [
         {
+          "version": "1.0.1",
+          "publishTimestamp": 1795131113,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/luciomerlo/dsh-freeclaudecode-auto.git",
+            "commit": "1d70e42e2718812bbe027e9d4a106c88e41eb35c"
+          },
+          "engines": {
+            "dsh": ">=0.2.0-rc.2"
+          }
+        },
+        {
           "version": "1.0.0",
           "publishTimestamp": 1795129972,
           "source": {
