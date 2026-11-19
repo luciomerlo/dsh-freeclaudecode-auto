@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "title": "Free Claude Code Auto",
+  "description": "DeepSeek Harness bundles for free-model routing with a zero-drop failover pipeline.",
+  "metadata": {
+    "categories": {
+      "routing": { "title": "Routing" },
+      "providers": { "title": "Providers" }
+    },
+    "labels": {
+      "free-models": { "title": "Free models" },
+      "failover": { "title": "Failover" },
+      "zero-drop": { "title": "Zero-drop" }
+    }
+  },
+  "plugins": [
+    {
+      "name": "dsh-freeclaudecode-auto",
+      "title": "Free Claude Code Auto",
+      "description": "Zero-drop free-model router for DeepSeek Harness: the Auto (FreeClaudeCode) mode, coding and fast profiles, fcc discovery, SSE watchdogs, mid-stream continuation, circuit breakers, and a live composer badge.",
+      "icon": "icon.svg",
+      "author": "luciomerlo",
+      "homepage": "https://github.com/luciomerlo/dsh-freeclaudecode-auto",
+      "repository": {
+        "url": "https://github.com/luciomerlo/dsh-freeclaudecode-auto"
+      },
+      "metadata": {
+        "category": "routing",
+        "keywords": [
+          "deepseek-harness",
+          "cordis-plugin",
+          "free-claude-code",
+          "llm-router",
+          "failover"
+        ],
+        "labels": ["free-models", "failover", "zero-drop"],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1795129972,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/luciomerlo/dsh-freeclaudecode-auto.git",
+            "commit": "4debec5358fa531de90bca3681417df81653224d"
+          },
+          "engines": {
+            "dsh": ">=0.2.0-rc.2"
+          }
+        }
+      ]
+    }
+  ]
+}
