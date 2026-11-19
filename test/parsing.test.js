@@ -10,6 +10,7 @@ import test from 'node:test'
 
 import { profileOf, resolveConfig } from '../src/config.js'
 import { configuredFccModels, normalizeFccModels, parseEnvText } from '../src/fcc.js'
+import { isChatModel, mergeCatalog } from '../src/providers.js'
 import { isDegenerateResponse } from '../src/failure.js'
 import { readSseFrames } from '../src/sse.js'
 import { normalizeUsage, toOpenAiMessages } from '../src/wire/openai.js'
@@ -126,6 +127,60 @@ test('OpenAI usage counters are normalized', () => {
     cacheReadTokens: 40,
     reasoningTokens: 5,
   })
+})
+
+test('non-chat catalog entries are recognized and filtered', () => {
+  const chat = [
+    'nvidia_nim/meta/llama-3.3-70b-instruct',
+    'nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct',
+    'openai/gpt-6-luna',
+    'nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b',
+  ]
+  const notChat = [
+    'nvidia_nim/fastino/gliner2-pii',
+    'nvidia_nim/nvidia/llama-3.1-nemoguard-8b-topic-control',
+    'nvidia_nim/nvidia/nemotron-3.5-embed-8b',
+    'nvidia_nim/nvidia/riva-translate-4b-instruct-v2',
+    'nvidia_nim/nvidia/nemotron-3.5-content-safety',
+    'nvidia_nim/nvidia/ising-calibration-1.5-31b',
+  ]
+  for (const id of chat) assert.equal(isChatModel(id), true, id)
+  for (const id of notChat) assert.equal(isChatModel(id), false, id)
+
+  const config = resolveConfig({ fcc: { enabled: false }, directProviders: { enabled: false } })
+  const fccCandidate = id => ({
+    catalogId: `fcc:${id}`,
+    key: `fcc:${id}`,
+    source: 'fcc',
+    provider: id.split('/')[0],
+    upstreamModel: id,
+    label: id,
+    wire: 'anthropic',
+    baseUrl: 'http://127.0.0.1:8082',
+    apiKey: '',
+    tier: null,
+    tools: true,
+    contextWindow: 0,
+    maxTokens: 0,
+  })
+  const merged = mergeCatalog([fccCandidate('nvidia_nim/fastino/gliner2-pii'), fccCandidate('openai/gpt-6-luna')], [], config)
+  assert.deepEqual(merged.map(candidate => candidate.catalogId), ['fcc:openai/gpt-6-luna'])
+
+  const proxied = mergeCatalog(
+    [fccCandidate('nvidia_nim/meta/llama-3.3-70b-instruct')],
+    [{
+      ...fccCandidate('meta/llama-3.3-70b-instruct'),
+      catalogId: 'nvidia_nim/meta/llama-3.3-70b-instruct',
+      key: 'direct:nvidia_nim:meta/llama-3.3-70b-instruct',
+      provider: 'nvidia_nim',
+      source: 'direct',
+      wire: 'openai',
+      apiKey: 'key',
+    }],
+    config,
+  )
+  assert.equal(proxied.length, 1, 'a provider fcc already covers is not added twice')
+  assert.equal(proxied[0].source, 'fcc')
 })
 
 test('OpenAI projection keeps tool calls and results correlated', () => {

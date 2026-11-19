@@ -297,6 +297,36 @@ test('a context-window rejection is not failed over', async () => {
   }
 })
 
+test('a continuation-only rejection does not cool the model down', async () => {
+  const partial = 'w'.repeat(200)
+  const stalling = await startServer(({ res }) => {
+    sseHead(res)
+    openAiText(res, partial)
+  })
+  const prefillRejecting = await startServer(({ res }) => {
+    res.writeHead(400, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ error: { message: 'Invalid request' } }))
+  })
+  const healthy = await startServer(({ res }) => openAiAnswer(res, ' tail'))
+  try {
+    const first = candidateAt(stalling.baseUrl, { id: 'stall' })
+    const rejecting = candidateAt(prefillRejecting.baseUrl, { id: 'no-prefill', wire: 'anthropic', source: 'fcc', catalogId: 'fcc:test/no-prefill' })
+    const last = candidateAt(healthy.baseUrl, { id: 'tail' })
+    const { runner, pool } = makeRunner({ candidates: [first, rejecting, last] })
+    const chunks = await collect(runner.stream(request({ model: first.catalogId })))
+    assert.equal(textOf(chunks), `${partial} tail`)
+    assert.equal(finishOf(chunks).reason.kind, 'stop')
+    const snapshot = pool.snapshot()
+    const cooled = snapshot.candidates.find(entry => entry.catalogId === rejecting.catalogId)
+    assert.equal(cooled.cooldownMs, 0, 'the prefill rejection is not the model\'s fault')
+    assert.equal(cooled.retiredMs, 0)
+  } finally {
+    await stalling.close()
+    await prefillRejecting.close()
+    await healthy.close()
+  }
+})
+
 test('an Anthropic wire candidate streams text, usage, and a finish', async () => {
   const fcc = await startServer(({ res }) => anthropicAnswer(res, 'from the fcc proxy'))
   try {

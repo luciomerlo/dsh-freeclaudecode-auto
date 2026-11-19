@@ -1,4 +1,4 @@
-﻿/**
+/**
  * The zero-drop turn runner.
  *
  * One harness turn walks an ordered candidate plan. Each attempt streams under
@@ -146,8 +146,14 @@ export function createRunner({ config, pool, logger, status, fetchImpl = globalT
           ? error.failure
           : failureOf(error, options.signal)
         lastFailure = failure
-        const reaction = failure.code === CODES.ABORTED
-          ? { reaction: 'aborted', cooldownMs: 0 }
+        // A 400/422 on a continuation request says something about the
+        // assistant-prefill shape, not about the model's health: some upstream
+        // Anthropic translators reject a conversation ending in an assistant
+        // turn. The candidate stays available for fresh turns.
+        const continuationRejected = continuationText !== ''
+          && (failure.status === 400 || failure.status === 422)
+        const reaction = failure.code === CODES.ABORTED || continuationRejected
+          ? { reaction: continuationRejected ? 'continuation-unsupported' : 'aborted', cooldownMs: 0 }
           : pool.recordFailure(candidate, failure)
         attempts.push({
           catalogId: candidate.catalogId,
@@ -373,6 +379,7 @@ export function createRunner({ config, pool, logger, status, fetchImpl = globalT
             signal,
             provider: candidate.provider,
             model: candidate.upstreamModel,
+            label: candidate.catalogId,
           })
           break
         } catch (error) {
@@ -391,6 +398,7 @@ export function createRunner({ config, pool, logger, status, fetchImpl = globalT
         signal,
         provider: candidate.provider,
         model: candidate.upstreamModel,
+        label: candidate.catalogId,
         onActivity: () => {
           if (ttftMs === 0) ttftMs = Math.max(1, Date.now() - startedAt)
           armStall()

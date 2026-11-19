@@ -1,6 +1,6 @@
 {
   "name": "dsh-freeclaudecode-auto",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Free Claude Code (fcc) provider for DeepSeek Harness with a zero-drop Auto (FreeClaudeCode) failover router",
   "keywords": [

@@ -170,6 +170,11 @@ export function buildRequest(options, candidate, extras = {}) {
  * @param {string} [context.model] - model id for diagnostics.
  * @returns {AsyncGenerator<Record<string, any>>} wire events.
  */
+/** Describe the attempted route in diagnostics. */
+function who(context) {
+  return context.label ?? `${context.provider ?? 'provider'}/${context.model ?? 'model'}`
+}
+
 export async function* parseResponse(body, context) {
   let started = false
   let stopped = false
@@ -272,7 +277,7 @@ export async function* parseResponse(body, context) {
 
   if (error !== undefined) {
     throw new ProviderFailure({
-      message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: ${error.message}`,
+      message: `${who(context)}: ${error.message}`,
       code: error.code,
       provider: context.provider,
       model: context.model,
@@ -281,7 +286,7 @@ export async function* parseResponse(body, context) {
 
   if (!stopped) {
     throw new ProviderFailure({
-      message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: the stream closed before message_stop`,
+      message: `${who(context)}: the stream closed before message_stop`,
       code: CODES.STREAM_CLOSED,
       provider: context.provider,
       model: context.model,

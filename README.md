@@ -153,7 +153,7 @@ candidate and keeps the rejected one for plain chat for 30 minutes.
 | `404` | `missing` | Retire for 6 h |
 | `429` | `rate` | Cooldown 30 s → 2 min → 10 min, honoring `Retry-After`, capped at 10 min |
 | `400`/`413`/`422` with tool wording | `tool` | 2 min cooldown, tools disabled for 30 min |
-| `400`/`413`/`422` otherwise | `rejected` | 10 min cooldown |
+| `400`/`413`/`422` otherwise | `rejected` | 10 min cooldown; a continuation-only rejection applies no cooldown |
 | `408`, `409`, `5xx`, network, stall, TTFT, malformed/empty stream | `transient` | 30 s → 2 min → 10 min cooldown |
 | Context-window overflow | `context` | **No failover**: the Harness owns compaction |
 | User cancellation | `aborted` | No health penalty |
@@ -206,6 +206,10 @@ On startup, every 5 minutes, and after a failover, the catalog is rebuilt:
    `provider/model` slug, because the proxy is the preferred route. The result
    replaces the pool; health history survives the refresh.
 
+Non-chat entries are filtered out of every catalog: embedding, reranking,
+guardrail, moderation, PII, translation, speech, OCR, and detector models are
+never candidates, even when a provider lists them beside chat models.
+
 When `fcc` is installed but not running and `autoStart` is enabled, the plugin
 spawns only a `fcc-server` executable (never an agent CLI), detached with
 `stdio: 'ignore'` and its own copy of the environment. It never edits
@@ -231,7 +235,7 @@ spawns only a `fcc-server` executable (never an agent CLI), detached with
 git clone https://github.com/luciomerlo/dsh-freeclaudecode-auto.git
 cd dsh-freeclaudecode-auto
 npm run build     # regenerates client.js, validates locales
-npm test          # 41 tests, no network required
+npm test          # 43 tests, no network required
 ```
 
 Then in DeepSeek Harness open **Plugins → Add plugin**, choose the cloned

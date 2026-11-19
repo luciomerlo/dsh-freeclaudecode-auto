@@ -171,6 +171,11 @@ export function buildRequest(options, candidate, extras = {}) {
  * @param {string} [context.model] - model id for diagnostics.
  * @returns {AsyncGenerator<Record<string, any>>} wire events.
  */
+/** Describe the attempted route in diagnostics. */
+function who(context) {
+  return context.label ?? `${context.provider ?? 'provider'}/${context.model ?? 'model'}`
+}
+
 export async function* parseResponse(body, context) {
   let started = false
   let finish = ''
@@ -226,7 +231,7 @@ export async function* parseResponse(body, context) {
 
   if (error !== undefined) {
     throw new ProviderFailure({
-      message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: ${error.message}`,
+      message: `${who(context)}: ${error.message}`,
       code: error.code,
       provider: context.provider,
       model: context.model,
@@ -236,7 +241,7 @@ export async function* parseResponse(body, context) {
   for (const [index, slot] of [...calls.entries()].sort((a, b) => a[0] - b[0])) {
     if (slot.name.trim() === '') {
       throw new ProviderFailure({
-        message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: the model returned an unnamed tool call`,
+        message: `${who(context)}: the model returned an unnamed tool call`,
         code: CODES.MALFORMED_RESPONSE,
         provider: context.provider,
         model: context.model,
@@ -247,7 +252,7 @@ export async function* parseResponse(body, context) {
         JSON.parse(slot.arguments)
       } catch {
         throw new ProviderFailure({
-          message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: the model returned truncated tool-call JSON`,
+          message: `${who(context)}: the model returned truncated tool-call JSON`,
           code: CODES.MALFORMED_RESPONSE,
           provider: context.provider,
           model: context.model,
@@ -265,7 +270,7 @@ export async function* parseResponse(body, context) {
   if (usage !== undefined) yield { type: 'usage', usage }
   if (finish === '' && calls.size === 0) {
     throw new ProviderFailure({
-      message: `${context.provider ?? 'provider'}/${context.model ?? 'model'}: the stream ended without a finish reason`,
+      message: `${who(context)}: the stream ended without a finish reason`,
       code: CODES.STREAM_CLOSED,
       provider: context.provider,
       model: context.model,

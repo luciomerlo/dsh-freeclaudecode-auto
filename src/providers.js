@@ -144,6 +144,23 @@ export const DIRECT_PROVIDERS = Object.freeze([
 ])
 
 /**
+ * Model families that are not chat models. Free catalogs list embedding,
+ * reranking, guardrail, PII, translation, and speech models beside chat
+ * models; routing a conversation to one of them wastes a failover at best and
+ * returns a nonsensical 422 at worst.
+ */
+const NON_CHAT_MODEL = /embed|clip|detector|starcoder|rerank|guard|safety|moderation|classif(?:ier|ication)|pii|calibrat|translate|transcri|whisper|tts|ocr|asr|speech|nemoguard/iu
+
+/**
+ * Whether an advertised model can answer a chat request.
+ * @param {string} id - provider model id.
+ * @returns {boolean} true for a conversational model.
+ */
+export function isChatModel(id) {
+  return typeof id === 'string' && id !== '' && !NON_CHAT_MODEL.test(id)
+}
+
+/**
  * Resolve one provider's credential from the merged environment.
  * @param {{env: string[]}} provider - provider definition.
  * @param {Record<string, string | undefined>} env - merged environment.
@@ -270,9 +287,15 @@ export async function buildDirectCandidates({ config, env, fetchImpl, signal, di
  */
 export function mergeCatalog(fccCandidates, directCandidates, config) {
   const fccSlugs = new Set(fccCandidates.map(candidate => candidate.upstreamModel))
+  // A provider fcc already proxies is reached through fcc's curated catalog.
+  // Adding that provider's raw /models output would reintroduce the embedding,
+  // guardrail, and detector entries fcc deliberately leaves out of a chat list.
+  const fccProviders = new Set(fccCandidates.map(candidate => candidate.provider))
   const seen = new Set()
   const merged = []
   for (const candidate of [...fccCandidates, ...directCandidates]) {
+    if (!isChatModel(candidate.upstreamModel)) continue
+    if (candidate.source === 'direct' && fccProviders.has(candidate.provider)) continue
     if (candidate.source === 'direct' && fccSlugs.has(`${candidate.provider}/${candidate.upstreamModel}`)) continue
     if (seen.has(candidate.catalogId)) continue
     seen.add(candidate.catalogId)

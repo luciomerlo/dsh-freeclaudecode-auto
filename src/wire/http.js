@@ -78,6 +78,7 @@ export function providerMessage(text) {
  * @throws {ProviderFailure} for a non-success status or a missing body.
  */
 export async function openStream(fetchImpl, request) {
+  const who = request.label ?? `${request.provider}/${request.model}`
   let response
   try {
     response = await fetchImpl(request.url, {
@@ -103,7 +104,7 @@ export async function openStream(fetchImpl, request) {
     const text = await errorText(response)
     const message = providerMessage(text)
     throw new ProviderFailure({
-      message: `${request.provider}/${request.model}: HTTP ${String(response.status)}${message === '' ? '' : ` — ${message}`}`,
+      message: `${who}: HTTP ${String(response.status)}${message === '' ? '' : ` — ${message}`}`,
       code: response.status === 401 || response.status === 403
         ? CODES.AUTH
         : response.status === 402
@@ -124,7 +125,7 @@ export async function openStream(fetchImpl, request) {
 
   if (response.body === null) {
     throw new ProviderFailure({
-      message: `${request.provider}/${request.model}: the response carried no body`,
+      message: `${who}: the response carried no body`,
       code: CODES.EMPTY_RESPONSE,
       status: response.status,
       provider: request.provider,
