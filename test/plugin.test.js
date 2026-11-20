@@ -122,6 +122,20 @@ test('the adapter advertises the three routing modes plus discovered models', as
   })
 
   assert.deepEqual(adapter.providerInfo('freeclaudecode'), { id: 'freeclaudecode', name: 'FreeClaudeCode' })
+  // The runtime calls every one of these during registration, context
+  // measurement, and dispatch; a missing method crashes a model switch.
+  for (const method of [
+    'providerInfo', 'providerRetryPolicy', 'imageRequestPricing', 'imageRequestTarget',
+    'listModels', 'resolveModel', 'prepareCall', 'stream',
+  ]) {
+    assert.equal(typeof adapter[method], 'function', `the adapter implements ${method}`)
+  }
+  assert.equal(adapter.imageRequestPricing('freeclaudecode', 'auto'), undefined)
+  assert.deepEqual(adapter.imageRequestTarget('freeclaudecode', 'auto', { width: 10, height: 20, bytes: 30 }), {
+    width: 10,
+    height: 20,
+    maxBytes: 30,
+  })
   const models = await adapter.listModels('freeclaudecode')
   assert.deepEqual(models.slice(0, 3).map(model => model.id), ['auto', 'best', 'fast'])
   assert.equal(models[0].name, 'Auto (FreeClaudeCode)')

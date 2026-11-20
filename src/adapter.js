@@ -107,6 +107,21 @@ export function createAdapter({ config, pool, runner, status, fcc, version }) {
     },
 
     /**
+     * Declare no provider-side image pricing.
+     *
+     * The runtime calls this on every registered adapter while measuring a
+     * context (including the compaction that precedes a model switch), so an
+     * adapter without the method would crash that measurement. A text-only
+     * route prices images through the caller's neutral estimate.
+     * @param {string} _provider - route.
+     * @param {string} _model - model id.
+     * @returns {undefined} no route-owned pricing.
+     */
+    imageRequestPricing(_provider, _model) {
+      return undefined
+    },
+
+    /**
      * Advertise the routing modes plus every discovered model.
      * @param {string} provider - the route.
      * @returns {Promise<object[]>} the selector catalog.
