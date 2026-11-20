@@ -1,13 +1,14 @@
 /**
- * Adapter contract and host mounting.
+ * Adapter contract and host mounting, including the Settings connection route.
  *
  * @module dsh-freeclaudecode-auto/test/plugin
  */
 
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Readable } from 'node:stream'
 
-import { apply, STATUS_ROUTE } from '../index.js'
+import { apply, SETTINGS_ROUTE, STATUS_ROUTE } from '../index.js'
 import { createAdapter } from '../src/adapter.js'
 import { resolveConfig } from '../src/config.js'
 import { CandidatePool } from '../src/pool.js'
@@ -33,14 +34,24 @@ function candidate() {
   }
 }
 
-/** Build a fake context that records registrations. */
+/** Build a fake context that records registrations and config edits. */
 function fakeContext({ tools, webServer } = {}) {
   const registrations = []
   const cleanups = []
+  const edits = []
+  const editor = {
+    async edit(entry, change) {
+      const next = change({}, {})
+      edits.push({ entry, next })
+    },
+  }
+  const entry = { options: { id: 'llm-freeclaudecode', name: 'dsh-freeclaudecode-auto', config: {} } }
   return {
     registrations,
     cleanups,
+    edits,
     logger: { info() {}, warn() {}, debug() {} },
+    fiber: { entry },
     llm: {
       registerAdapter(providers, adapter) {
         registrations.push({ providers, adapter })
@@ -55,9 +66,32 @@ function fakeContext({ tools, webServer } = {}) {
     get(name) {
       if (name === 'tools') return tools
       if (name === 'webServer') return webServer
+      if (name === 'configEditor') return editor
       return undefined
     },
   }
+}
+
+/** Call one registered webserver route with a synthetic request. */
+async function callRoute(route, { method = 'GET', headers = {}, body } = {}) {
+  const payload = body === undefined ? [] : [Buffer.from(JSON.stringify(body))]
+  const req = Readable.from(payload)
+  req.method = method
+  req.headers = headers
+  const res = {
+    statusCode: 0,
+    headers: {},
+    body: '',
+    writeHead(code, responseHeaders) {
+      this.statusCode = code
+      this.headers = responseHeaders ?? {}
+    },
+    end(text) {
+      this.body = text ?? ''
+    },
+  }
+  await route.handler(req, res)
+  return { status: res.statusCode, json: res.body === '' ? undefined : JSON.parse(res.body) }
 }
 
 test('the adapter advertises the three routing modes plus discovered models', async () => {
@@ -101,9 +135,9 @@ test('the adapter advertises the three routing modes plus discovered models', as
   assert.equal(snapshot.pool.size, 1)
 })
 
-test('apply registers the provider, the status tool, and the status route', async () => {
+test('apply registers the provider, the status tool, and both routes', async () => {
   let toolDefinition
-  let route
+  const routes = []
   const tools = {
     register(definition) {
       toolDefinition = definition
@@ -112,7 +146,7 @@ test('apply registers the provider, the status tool, and the status route', asyn
   }
   const webServer = {
     register(candidateRoute) {
-      route = candidateRoute
+      routes.push(candidateRoute)
       return () => {}
     },
   }
@@ -135,13 +169,103 @@ test('apply registers the provider, the status tool, and the status route', asyn
   assert.equal(report.health, 'offline')
   assert.equal(report.pool.candidates, undefined)
 
-  assert.equal(route.kind, 'exact')
-  assert.equal(route.path, STATUS_ROUTE)
-  const response = await route.resource()
+  const statusRoute = routes.find(route => route.path === STATUS_ROUTE)
+  assert.equal(statusRoute.kind, 'exact')
+  const response = await statusRoute.resource()
   assert.equal(response.status, 200)
   const body = await response.json()
   assert.equal(body.plugin, 'dsh-freeclaudecode-auto')
   assert.equal(body.pool.candidates, undefined)
+  assert.equal(body.fcc.directory, undefined, 'the public status carries no local paths')
+
+  assert.ok(routes.some(route => route.path === SETTINGS_ROUTE), 'the Settings route is registered')
+
+  for (const dispose of ctx.cleanups) dispose()
+})
+
+test('the settings route refuses a request without the plugin header', async () => {
+  const routes = []
+  const ctx = fakeContext({ webServer: { register(route) { routes.push(route); return () => {} } } })
+  apply(ctx, { fcc: { enabled: false, autoStart: false }, directProviders: { enabled: false } })
+  await new Promise(resolve => setImmediate(resolve))
+
+  const route = routes.find(entry => entry.path === SETTINGS_ROUTE)
+  const refused = await callRoute(route, { method: 'GET' })
+  assert.equal(refused.status, 403)
+
+  const allowed = await callRoute(route, {
+    method: 'GET',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+  })
+  assert.equal(allowed.status, 200)
+  assert.equal(allowed.json.config.providerId, 'freeclaudecode')
+  assert.match(allowed.json.config.fcc.directory, /\.fcc$/u)
+  assert.equal(allowed.json.capabilities.canSave, true)
+
+  for (const dispose of ctx.cleanups) dispose()
+})
+
+test('saving the connection writes the plugin row through the config editor', async () => {
+  const routes = []
+  const ctx = fakeContext({ webServer: { register(route) { routes.push(route); return () => {} } } })
+  apply(ctx, { fcc: { enabled: false, autoStart: false }, directProviders: { enabled: false } })
+  await new Promise(resolve => setImmediate(resolve))
+
+  const route = routes.find(entry => entry.path === SETTINGS_ROUTE)
+  const saved = await callRoute(route, {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+    body: {
+      action: 'save',
+      baseUrl: 'http://127.0.0.1:9099/',
+      directory: '~/.fcc',
+      autoStart: false,
+      enabled: true,
+    },
+  })
+  assert.equal(saved.status, 200)
+  assert.equal(saved.json.saved, true)
+  assert.equal(ctx.edits.length, 1)
+  assert.equal(ctx.edits[0].entry.options.id, 'llm-freeclaudecode')
+  assert.equal(ctx.edits[0].next.fcc.baseUrl, 'http://127.0.0.1:9099')
+  assert.equal(ctx.edits[0].next.fcc.autoStart, false)
+  assert.match(ctx.edits[0].next.fcc.directory, /[\\/]\.fcc$/u)
+
+  const invalid = await callRoute(route, {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+    body: { action: 'save', baseUrl: 'ftp://nope' },
+  })
+  assert.equal(invalid.status, 400)
+  assert.equal(ctx.edits.length, 1, 'an invalid draft never reaches the editor')
+
+  for (const dispose of ctx.cleanups) dispose()
+})
+
+test('the connection actions report a disabled integration without network I/O', async () => {
+  const routes = []
+  const ctx = fakeContext({ webServer: { register(route) { routes.push(route); return () => {} } } })
+  apply(ctx, { fcc: { enabled: false, autoStart: false }, directProviders: { enabled: false } })
+  await new Promise(resolve => setImmediate(resolve))
+
+  const route = routes.find(entry => entry.path === SETTINGS_ROUTE)
+  const tested = await callRoute(route, {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+    body: { action: 'test' },
+  })
+  assert.equal(tested.status, 200)
+  assert.equal(tested.json.ok, false)
+  assert.match(tested.json.message, /disabled/u)
+
+  const refreshed = await callRoute(route, {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+    body: { action: 'refresh' },
+  })
+  assert.equal(refreshed.status, 200)
+  assert.equal(refreshed.json.ok, true)
+  assert.match(refreshed.json.message, /models loaded/u)
 
   for (const dispose of ctx.cleanups) dispose()
 })

@@ -14,6 +14,8 @@ continued on the replacement model instead of being thrown away.
 - Selector modes: **Auto (FreeClaudeCode)**, **FreeClaudeCode - Best Coding**,
   **FreeClaudeCode - Fast / Subagent**, plus every model discovered from `fcc`
   or from your own provider keys
+- Connection page: **Settings → FreeClaudeCode** — proxy URL, config directory,
+  auto-start, test, start, refresh, and save
 - Runtime dependencies: none (Node.js built-ins only)
 - License: MIT
 
@@ -235,7 +237,7 @@ spawns only a `fcc-server` executable (never an agent CLI), detached with
 git clone https://github.com/luciomerlo/dsh-freeclaudecode-auto.git
 cd dsh-freeclaudecode-auto
 npm run build     # regenerates client.js, validates locales
-npm test          # 43 tests, no network required
+npm test          # 46 tests, no network required
 ```
 
 Then in DeepSeek Harness open **Plugins → Add plugin**, choose the cloned
@@ -246,8 +248,35 @@ edits to the source are picked up after a Harness reload.
 
 - The model picker lists **Auto (FreeClaudeCode)** under the `FreeClaudeCode`
   provider.
+- **Settings → FreeClaudeCode** shows the connection state and lets you change
+  the proxy URL, the config directory, and auto-start.
 - `freeclaudecode_status` (model tool) returns the pool snapshot.
 - The composer shows the `FreeClaudeCode` badge once a turn has run.
+
+## Connect from Settings
+
+Open **Settings → FreeClaudeCode**. The page shows the live health dot, the
+number of models the proxy advertises, and the ready/total pool.
+
+| Field | Meaning |
+|---|---|
+| Connect through the Free Claude Code proxy | Turns the `fcc` integration on or off; off leaves only direct providers |
+| Proxy URL | Root of the local proxy, default `http://127.0.0.1:8082` |
+| Configuration directory | Where fcc stores `.env` and its database, default `~/.fcc` |
+| Start fcc-server automatically | Starts an installed `fcc-server` when the proxy is down |
+
+Actions:
+
+- **Test connection** probes the proxy now and reports the advertised model count.
+- **Start fcc-server** launches the installed daemon in the background, then refreshes the catalog.
+- **Refresh models** rebuilds the pool immediately instead of waiting for the five-minute cycle.
+- **Save connection** writes the values to the plugin's own profile row through
+  the Harness config editor and restarts the plugin. A host without the config
+  editor reports that saving is unavailable instead of pretending.
+
+Provider keys and the optional proxy token are never entered on this page: they
+stay in the fcc environment file (`~/.fcc/.env`), which the plugin reads for both
+the proxy and the direct providers. The page never stores or displays secrets.
 
 ## Configuration
 

@@ -39,6 +39,14 @@ provider key or model exists.
 3. Start a new session and select **Auto (FreeClaudeCode)**.
 4. Ask `freeclaudecode_status` when you want the live pool and breaker state.
 
+Open **Settings → FreeClaudeCode** to connect the harness to the proxy: set the
+proxy URL and the fcc configuration directory, choose whether an installed
+`fcc-server` starts automatically, then use **Test connection**, **Start
+fcc-server**, **Refresh models**, or **Save connection**. The page shows the
+live health dot, the advertised model count, and the ready/total pool. Provider
+keys and the optional proxy token stay in `~/.fcc/.env`; the page never stores
+or displays secrets.
+
 ## Limitations
 
 - Text-only: images and files are projected to plain text by the Harness.

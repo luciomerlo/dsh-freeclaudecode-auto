@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Free Claude Code Auto",
-    "description": "Routes DeepSeek Harness turns through Free Claude Code and free model providers with a zero-drop failover router: TTFT and stall watchdogs, mid-stream continuation, circuit breakers, and an Auto (FreeClaudeCode) model in the selector.",
+    "description": "Routes DeepSeek Harness turns through Free Claude Code and free model providers with a zero-drop failover router: a Settings connection page, TTFT and stall watchdogs, mid-stream continuation, circuit breakers, and an Auto (FreeClaudeCode) model in the selector.",
     "detail": "docs/DETAIL.md"
   },
   "panel": {
