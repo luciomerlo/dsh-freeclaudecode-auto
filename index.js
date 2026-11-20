@@ -367,10 +367,13 @@ export function apply(ctx, input) {
     }
   }, 'freeclaudecode: catalog lifecycle')
 
-  // The status tool lets the model explain routing health to the user.
-  const tools = ctx.get?.('tools') ?? ctx.tools
-  if (tools !== undefined && typeof tools.register === 'function') {
-    ctx.effect(() => {
+  // Optional services are registered as child fibers: the plugin still routes
+  // models when a host omits the tools registry or the web server, and a
+  // service provided by a sibling fiber is reachable through an injected child
+  // instead of a bare `ctx.tools` access, which Cordis rejects.
+  ctx.inject(['tools'], (toolsCtx) => {
+    const tools = toolsCtx.tools
+    toolsCtx.effect(() => {
       const definition = {
         name: 'freeclaudecode_status',
         description: 'Report FreeClaudeCode routing health for this profile: the fcc proxy state, each free model\'s circuit-breaker state, and recent failovers. Read-only.',
@@ -400,38 +403,36 @@ export function apply(ctx, input) {
         return () => {}
       }
     }, 'freeclaudecode: status tool')
-  }
+  })
 
-  // The composer badge polls this route; it carries no credentials and the
-  // same data the status tool returns.
-  const webServer = ctx.get?.('webServer') ?? ctx.webServer
-  if (config.statusRoute && webServer !== undefined && typeof webServer.register === 'function') {
-    ctx.effect(() => {
-      try {
-        return webServer.register({
-          kind: 'exact',
-          path: STATUS_ROUTE,
-          resource: async () => {
-            return new Response(JSON.stringify(publicStatus()), {
-              status: 200,
-              headers: {
-                'content-type': 'application/json; charset=utf-8',
-                'cache-control': 'no-store',
-              },
-            })
-          },
-        })
-      } catch (error) {
-        logger.warn('freeclaudecode: the status route could not be registered', error)
-        return () => {}
-      }
-    }, 'freeclaudecode: status route')
-  }
+  ctx.inject(['webServer'], (webCtx) => {
+    const webServer = webCtx.webServer
+    if (config.statusRoute) {
+      webCtx.effect(() => {
+        try {
+          return webServer.register({
+            kind: 'exact',
+            path: STATUS_ROUTE,
+            resource: async () => {
+              return new Response(JSON.stringify(publicStatus()), {
+                status: 200,
+                headers: {
+                  'content-type': 'application/json; charset=utf-8',
+                  'cache-control': 'no-store',
+                },
+              })
+            },
+          })
+        } catch (error) {
+          logger.warn('freeclaudecode: the status route could not be registered', error)
+          return () => {}
+        }
+      }, 'freeclaudecode: status route')
+    }
 
-  // The Settings section reads and writes the connection through this route;
-  // the header requirement keeps a cross-origin form from changing it.
-  if (webServer !== undefined && typeof webServer.register === 'function') {
-    ctx.effect(() => {
+    // The Settings section reads and writes the connection through this route;
+    // the header requirement keeps a cross-origin form from changing it.
+    webCtx.effect(() => {
       try {
         return webServer.register({
           kind: 'exact',
@@ -443,7 +444,7 @@ export function apply(ctx, input) {
         return () => {}
       }
     }, 'freeclaudecode: settings route')
-  }
+  })
 
   // Expose nothing else: the adapter, pool, and status registry stay owned by
   // this closure, so unloading the plugin cannot leave a dangling reference.

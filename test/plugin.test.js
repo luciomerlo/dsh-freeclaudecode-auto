@@ -62,6 +62,18 @@ function fakeContext({ tools, webServer } = {}) {
       const dispose = callback()
       if (typeof dispose === 'function') cleanups.push(dispose)
     },
+    inject(deps, callback) {
+      const child = {
+        tools: deps.includes('tools') ? tools : undefined,
+        webServer: deps.includes('webServer') ? webServer : undefined,
+        effect(inner) {
+          const dispose = inner()
+          if (typeof dispose === 'function') cleanups.push(dispose)
+        },
+      }
+      const dispose = callback(child)
+      if (typeof dispose === 'function') cleanups.push(dispose)
+    },
     emit() {},
     get(name) {
       if (name === 'tools') return tools
