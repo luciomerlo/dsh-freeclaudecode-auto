@@ -17,7 +17,7 @@ and other free model providers, and keeps the turn alive when a model fails.
   block and the replacement model continues it.
 - A circuit breaker (30 s → 2 min → 10 min for transient failures, 6 h for
   auth/quota/model-missing) with EWMA health ranking.
-- A read-only status tool, a composer badge, and one log line per turn.
+- A read-only status tool, the Settings connection page, and one log line per turn.
 
 ## How it behaves
 

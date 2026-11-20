@@ -83,7 +83,7 @@ The Harness only sees one provider and a stream that always ends with a terminal
 | Discovery | `src/fcc.js`, `src/providers.js` | `fcc` config/proxy/daemon, direct OpenAI-compatible providers |
 | Failure model | `src/failure.js` | Stable failure facts and the reaction classification |
 | Observability | `src/status.js` | Turn history, failover history, pool snapshot |
-| Client | `src/client/index.js`, `client.js` | Composer badge fed by the read-only status route |
+| Client | `src/client/index.js`, `client.js` | Settings connection page; it reads and writes through the plugin's own routes |
 
 The adapter imports nothing from `@deepseek-ai/*`. The `llm` service validates a
 registration through `providerInfo`/`providerRetryPolicy` and calls the adapter
@@ -251,7 +251,8 @@ edits to the source are picked up after a Harness reload.
 - **Settings → FreeClaudeCode** shows the connection state and lets you change
   the proxy URL, the config directory, and auto-start.
 - `freeclaudecode_status` (model tool) returns the pool snapshot.
-- The composer shows the `FreeClaudeCode` badge once a turn has run.
+- **Settings → FreeClaudeCode** shows the connection state and the ready/total
+  pool, and exposes the test, start, refresh, and save actions.
 
 ## Connect from Settings
 
@@ -363,10 +364,10 @@ reports only booleans (`authenticated`, `available`) and model metadata.
 - **`freeclaudecode_status` tool** — pool counts, per-candidate breaker state,
   last 10 turns, and last 10 failovers. Pass `includeCandidates: true` for the
   full catalog.
-- **Composer badge** — health dot, ready/total models, session failover count,
-  and the last served model. It polls
-  `GET /plugin/freeclaudecode/status` every 15 s and hides itself when the route
-  is unavailable.
+- **Settings page** — health dot, advertised model count, ready/total pool, and
+  the connection actions described above.
+- **Read-only status route** — `GET /plugin/freeclaudecode/status` returns the
+  same public summary for a local client.
 - **Failure reasons** — each candidate keeps the last failure code and message,
   truncated, so a stalled pool is diagnosable without reading Harness logs.
 
@@ -375,11 +376,11 @@ reports only booleans (`authenticated`, `available`) and model metadata.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `NO_MODEL_AVAILABLE` on every turn | fcc is down and no direct key is set | Start Free Claude Code, or add a key to `~/.fcc/.env`, then wait for the 5-minute refresh or restart the session |
-| Badge says `offline`, `pool 0` | Same as above | Same as above |
+| Settings page says `offline`, `pool 0` | Same as above | Same as above |
 | Every candidate `retired` for 6 h | All keys were rejected once (`401`/`402`) | Fix or replace the key; restart the Harness to clear the in-memory retirement |
 | Turns switch models constantly | Free pools are rate-limited | Add a second provider key, or select `Best Coding` |
 | `context` error, no failover | Request exceeds the selected model's window | Let the Harness compact, or select a model with a larger window |
-| Badge missing | Not running the Web host, or `statusRoute: false` | Use the status tool instead |
+| Settings page missing | Not running the Web host | Use the status tool instead |
 | fcc starts but models are missing | Model listing is empty | Set `MODEL` in `~/.fcc/.env` or pick a model in fcc Admin |
 
 ## Compatibility and limitations

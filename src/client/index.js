@@ -1,11 +1,9 @@
 /**
  * Browser half of the FreeClaudeCode bundle.
  *
- * It draws two surfaces:
- *  - a composer badge fed by the read-only status route;
- *  - a Settings page ("FreeClaudeCode") that connects the harness to the local
- *    fcc proxy: proxy URL, config directory, auto-start, plus test, start,
- *    refresh, and save actions.
+ * It draws one surface: the Settings page ("FreeClaudeCode") that connects the
+ * harness to the local fcc proxy — proxy URL, config directory, auto-start,
+ * plus test, start, refresh, and save actions.
  *
  * All copy is English. Colors and type come from the host theme tokens, with
  * neutral fallbacks, so the page follows light/dark switching.
@@ -20,20 +18,8 @@ const DOT_COLOR = {
   offline: 'var(--dsw-alias-danger, #c94a4a)',
 }
 
-const STATUS_URL = '/plugin/freeclaudecode/status'
 const SETTINGS_URL = '/plugin/freeclaudecode/settings'
 const PLUGIN_HEADERS = { accept: 'application/json', 'x-dsh-plugin-request': 'freeclaudecode' }
-
-/**
- * Shorten a catalog id for the compact badge.
- * @param {string} id - catalog id.
- * @returns {string} the model part only.
- */
-function shortModel(id) {
-  if (typeof id !== 'string' || id === '') return ''
-  const slash = id.lastIndexOf('/')
-  return slash === -1 ? id : id.slice(slash + 1)
-}
 
 /** Read the Settings payload. */
 async function loadSettings() {
@@ -116,67 +102,6 @@ export function createPlugin(React) {
     },
     message: { fontSize: 12, lineHeight: '17px' },
     link: { fontSize: 12, color: 'var(--dsw-alias-link, #4f9cf7)' },
-  }
-
-  /** Composer badge: health, pool, session failovers, last served model. */
-  function FreeClaudeCodeBadge() {
-    const [state, setState] = React.useState(null)
-
-    React.useEffect(() => {
-      let alive = true
-      const load = async () => {
-        try {
-          const response = await fetch(STATUS_URL, { headers: { accept: 'application/json' } })
-          if (!response.ok) return
-          const value = await response.json()
-          if (alive) setState(value)
-        } catch {
-          // The route does not exist in every host; the badge stays hidden.
-        }
-      }
-      void load()
-      const timer = setInterval(() => { void load() }, 15000)
-      return () => {
-        alive = false
-        clearInterval(timer)
-      }
-    }, [])
-
-    if (state === null) return null
-
-    const health = state.health ?? 'offline'
-    const pool = state.pool ?? {}
-    const last = state.session?.lastTurn ?? null
-    const failovers = state.session?.failovers ?? 0
-    const served = last?.servedModel === null || last?.servedModel === undefined ? 'no turn yet' : shortModel(last.servedModel)
-
-    return h(
-      'div',
-      {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '2px 8px',
-          borderRadius: 999,
-          fontSize: 11,
-          lineHeight: '18px',
-          color: 'var(--dsw-alias-text-secondary, #888)',
-          background: 'var(--dsw-alias-bg-subtle, rgba(127,127,127,0.08))',
-          userSelect: 'none',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-        },
-        title: `fcc ${state.fcc?.available ? 'up' : 'down'} · ${String(pool.ready ?? 0)}/${String(pool.size ?? 0)} models ready · ${String(failovers)} silent failovers this session`,
-      },
-      h('span', { style: { ...style.dot, background: DOT_COLOR[health] ?? DOT_COLOR.offline } }),
-      h('span', { style: { fontWeight: 600, color: 'var(--dsw-alias-text-primary, #ddd)' } }, 'FreeClaudeCode'),
-      h('span', null, health),
-      h('span', null, `· ${String(pool.ready ?? 0)}/${String(pool.size ?? 0)} ready`),
-      failovers > 0 ? h('span', null, `· ${String(failovers)} failovers`) : null,
-      h('span', { style: { opacity: 0.8 } }, `· ${served}`),
-    )
   }
 
   /** Settings page that connects the harness to a local fcc proxy. */
@@ -351,14 +276,6 @@ export function createPlugin(React) {
   return {
     inject: ['slots'],
     apply(ctx) {
-      ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
-        {
-          name: 'conversation.composer.dock',
-          id: 'freeclaudecode-status',
-          order: 40,
-        },
-        FreeClaudeCodeBadge,
-      ))
       ctx.slots.inject('settings.section', () => ctx.slots.register(
         {
           name: 'settings.section',
