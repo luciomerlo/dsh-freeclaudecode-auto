@@ -221,6 +221,10 @@ export function apply(ctx, input) {
           directory: config.fcc.directory,
           autoStart: config.fcc.autoStart,
         },
+        routing: {
+          ttftTimeoutMs: config.ttftTimeoutMs,
+          stallTimeoutMs: config.stallTimeoutMs,
+        },
       },
       capabilities: {
         canSave,
@@ -243,11 +247,21 @@ export function apply(ctx, input) {
     if (directory !== '' && !/^(?:[A-Za-z]:[\\/]|\/)/u.test(directory)) {
       throw httpError(400, 'The configuration directory must be an absolute path')
     }
+    const timings = {}
+    for (const key of ['ttftTimeoutMs', 'stallTimeoutMs']) {
+      if (body[key] === undefined || body[key] === null || body[key] === '') continue
+      const value = Number(body[key])
+      if (!Number.isFinite(value) || value < 500 || value > 120000) {
+        throw httpError(400, `${key} must be a number of milliseconds between 500 and 120000`)
+      }
+      timings[key] = Math.round(value)
+    }
     return {
       enabled: body.enabled !== false,
       baseUrl: rawUrl,
       directory,
       autoStart: body.autoStart !== false,
+      ...timings,
     }
   }
 
@@ -262,6 +276,8 @@ export function apply(ctx, input) {
       const fccCurrent = current.fcc !== null && typeof current.fcc === 'object' ? current.fcc : {}
       return {
         ...current,
+        ...next.ttftTimeoutMs === undefined ? {} : { ttftTimeoutMs: next.ttftTimeoutMs },
+        ...next.stallTimeoutMs === undefined ? {} : { stallTimeoutMs: next.stallTimeoutMs },
         fcc: {
           ...fccCurrent,
           enabled: next.enabled,

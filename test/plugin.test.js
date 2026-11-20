@@ -212,6 +212,8 @@ test('the settings route refuses a request without the plugin header', async () 
   assert.equal(allowed.status, 200)
   assert.equal(allowed.json.config.providerId, 'freeclaudecode')
   assert.match(allowed.json.config.fcc.directory, /\.fcc$/u)
+  assert.equal(allowed.json.config.routing.ttftTimeoutMs, 8000)
+  assert.equal(allowed.json.config.routing.stallTimeoutMs, 12000)
   assert.equal(allowed.json.capabilities.canSave, true)
 
   for (const dispose of ctx.cleanups) dispose()
@@ -233,6 +235,8 @@ test('saving the connection writes the plugin row through the config editor', as
       directory: '~/.fcc',
       autoStart: false,
       enabled: true,
+      ttftTimeoutMs: 6000,
+      stallTimeoutMs: 9000,
     },
   })
   assert.equal(saved.status, 200)
@@ -241,6 +245,8 @@ test('saving the connection writes the plugin row through the config editor', as
   assert.equal(ctx.edits[0].entry.options.id, 'llm-freeclaudecode')
   assert.equal(ctx.edits[0].next.fcc.baseUrl, 'http://127.0.0.1:9099')
   assert.equal(ctx.edits[0].next.fcc.autoStart, false)
+  assert.equal(ctx.edits[0].next.ttftTimeoutMs, 6000)
+  assert.equal(ctx.edits[0].next.stallTimeoutMs, 9000)
   assert.match(ctx.edits[0].next.fcc.directory, /[\\/]\.fcc$/u)
 
   const invalid = await callRoute(route, {
@@ -250,6 +256,14 @@ test('saving the connection writes the plugin row through the config editor', as
   })
   assert.equal(invalid.status, 400)
   assert.equal(ctx.edits.length, 1, 'an invalid draft never reaches the editor')
+
+  const invalidTiming = await callRoute(route, {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-request': 'freeclaudecode' },
+    body: { action: 'save', ttftTimeoutMs: 50 },
+  })
+  assert.equal(invalidTiming.status, 400)
+  assert.equal(ctx.edits.length, 1, 'an unusable timeout never reaches the editor')
 
   for (const dispose of ctx.cleanups) dispose()
 })

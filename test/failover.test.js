@@ -327,6 +327,49 @@ test('a continuation-only rejection does not cool the model down', async () => {
   }
 })
 
+test('a harness-shaped request with many tools keeps a complete tool call', async () => {
+  const server = await startServer(({ res }) => {
+    sseHead(res)
+    sse(res, {
+      choices: [{
+        index: 0,
+        delta: { tool_calls: [{ index: 0, id: 'call_shape', function: { name: 'tool_0', arguments: '{"command":"echo hi"}' } }] },
+      }],
+    })
+    sse(res, { choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] })
+    sse(res, '[DONE]')
+    res.end()
+  })
+  try {
+    const target = candidateAt(server.baseUrl, { id: 'shape' })
+    const { runner } = makeRunner({ candidates: [target] })
+    const tools = Array.from({ length: 18 }, (_, index) => ({
+      name: index === 0 ? 'tool_0' : `tool_${String(index)}`,
+      description: 'A tool the agent may call.',
+      parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] },
+    }))
+    const chunks = await collect(runner.stream({
+      provider: 'freeclaudecode',
+      model: target.catalogId,
+      system: 'You are a coding agent. '.repeat(40),
+      tools,
+      maxTokens: 32768,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'run echo hi' }] }],
+    }))
+    const call = chunks.find(chunk => chunk.type === 'block-end' && chunk.block.type === 'tool-call')
+    assert.ok(call, 'the tool call reached the harness')
+    assert.deepEqual(JSON.parse(call.block.arguments), { command: 'echo hi' })
+    assert.equal(finishOf(chunks).reason.kind, 'tool-calls')
+
+    const sent = server.requests.at(-1).body
+    assert.equal(sent.max_tokens, 32768, 'the harness output cap travels through')
+    assert.equal(sent.tools.length, 18, 'every tool schema reaches the provider')
+    assert.match(sent.messages[0].content, /coding agent/u, 'the system prompt is projected')
+  } finally {
+    await server.close()
+  }
+})
+
 test('an Anthropic wire candidate streams text, usage, and a finish', async () => {
   const fcc = await startServer(({ res }) => anthropicAnswer(res, 'from the fcc proxy'))
   try {

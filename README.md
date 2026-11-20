@@ -265,6 +265,8 @@ number of models the proxy advertises, and the ready/total pool.
 | Proxy URL | Root of the local proxy, default `http://127.0.0.1:8082` |
 | Configuration directory | Where fcc stores `.env` and its database, default `~/.fcc` |
 | Start fcc-server automatically | Starts an installed `fcc-server` when the proxy is down |
+| First-token timeout (ms) | How long a silent model may hold the turn before the router switches (default 8000) |
+| Stream stall timeout (ms) | How long a mid-stream pause may last before continuing on another model (default 12000) |
 
 Actions:
 
@@ -301,7 +303,7 @@ row replaces the whole config, so copy the keys you need.
 | `fcc.probeTimeoutMs` | `1500` | Probe timeout |
 | `fcc.binary` | `''` | Explicit `fcc-server` path, bypassing PATH discovery |
 | `fcc.envFile` | `''` | Explicit env file instead of `<directory>/.env` |
-| `ttftTimeoutMs` | `8000` | First-byte deadline |
+| `ttftTimeoutMs` | `8000` | First-byte deadline; lower fails over faster, higher tolerates cold free models |
 | `stallTimeoutMs` | `12000` | Mid-stream stall deadline |
 | `maxFailovers` | `8` | Maximum candidates per turn |
 | `requestTimeoutMs` | `600000` | Whole-request deadline |

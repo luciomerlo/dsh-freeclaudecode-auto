@@ -118,6 +118,8 @@ export function createPlugin(React) {
         baseUrl: payload.config?.fcc?.baseUrl ?? '',
         directory: payload.config?.fcc?.directory ?? '',
         autoStart: payload.config?.fcc?.autoStart !== false,
+        ttftTimeoutMs: payload.config?.routing?.ttftTimeoutMs ?? 5000,
+        stallTimeoutMs: payload.config?.routing?.stallTimeoutMs ?? 12000,
       })
     }
 
@@ -244,6 +246,35 @@ export function createPlugin(React) {
         h('label', { style: style.checkRow },
           h('input', { type: 'checkbox', checked: draft.autoStart, onChange: update('autoStart'), disabled }),
           'Start fcc-server automatically when the proxy is not running'),
+
+        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+          h('div', { style: style.field },
+            h('label', { htmlFor: 'freeclaudecode-ttft', style: style.label }, 'First-token timeout (ms)'),
+            h('input', {
+              id: 'freeclaudecode-ttft',
+              type: 'number',
+              min: 500,
+              step: 500,
+              value: draft.ttftTimeoutMs,
+              style: style.input,
+              onChange: update('ttftTimeoutMs'),
+              disabled,
+            }),
+            h('div', { style: style.hint }, 'Lower fails over faster on cold free models; higher tolerates slow starts. Default 5000.'),),
+          h('div', { style: style.field },
+            h('label', { htmlFor: 'freeclaudecode-stall', style: style.label }, 'Stream stall timeout (ms)'),
+            h('input', {
+              id: 'freeclaudecode-stall',
+              type: 'number',
+              min: 500,
+              step: 500,
+              value: draft.stallTimeoutMs,
+              style: style.input,
+              onChange: update('stallTimeoutMs'),
+              disabled,
+            }),
+            h('div', { style: style.hint }, 'How long a mid-stream pause may last before continuing on another model. Default 12000.'),),
+        ),
 
         h('div', { style: style.buttons },
           h('button', { type: 'button', style: style.button, disabled, onClick: () => { void act('test') } },
